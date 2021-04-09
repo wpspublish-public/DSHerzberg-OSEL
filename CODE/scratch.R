@@ -1,21 +1,54 @@
-strat_buckets <- output_df %>% 
-  select(-ID) %>% 
-  group_by(coder, age_years, clinical) %>% 
-  count() %>%
-  ungroup %>% 
-  mutate(bucket = row_number())
+source("~/Desktop/R/GENERAL/CODE/stratified-function.R")
 
 set.seed(12345)
-input_interrater <- output_df %>% 
-  left_join(strat_buckets, by = c("coder", "age_years", "clinical")) %>% 
-  arrange(bucket) %>% 
-  group_by(bucket) %>% 
-  slice_sample(prop = .15, replace = FALSE) %>% 
-  mutate(interrater = 1) %>% 
-  ungroup() %>% 
-  select(ID, interrater)
-  
+temp_typical <- stratified(
+  output_df,
+  group = c("coder", "age_years", "clinical"),
+  size = .1,
+  select = list(clinical = 1)
+)
 
-df <- tibble(x = c(1, 2, NA), y = c("a", NA, "b"))
-df %>% replace_na(list(x = 0, y = "unknown"))
+set.seed(12345)
+temp_clinical <- stratified(
+  output_df,
+  group = c("coder", "age_years", "clinical"),
+  size = .22,
+  select = list(clinical = 2)
+)
+
+temp1 <- bind_rows(
+  temp_typical,
+  temp_clinical
+) %>% 
+  arrange(coder, age_years, clinical)
+
+table_output_df_coder <- as_tibble(
+  table(output_df$coder), 
+  .name_repair = "minimal") %>% 
+  set_names("coder", "n")
+
+table_output_df_age_years <- as_tibble(
+  table(output_df$age_years), 
+  .name_repair = "minimal") %>% 
+  set_names("age_year", "n")
+
+table_output_df_clinical <- as_tibble(
+  table(output_df$clinical), 
+  .name_repair = "minimal") %>% 
+  set_names("clinical", "n")
+
+table_temp1_coder <- as_tibble(
+  table(temp1$coder), 
+  .name_repair = "minimal") %>% 
+  set_names("coder", "n")
+
+table_temp1_age_years <- as_tibble(
+  table(temp1$age_years), 
+  .name_repair = "minimal") %>% 
+  set_names("age_year", "n")
+
+table_temp1_clinical <- as_tibble(
+  table(temp1$clinical), 
+  .name_repair = "minimal") %>% 
+  set_names("clinical", "n")
 

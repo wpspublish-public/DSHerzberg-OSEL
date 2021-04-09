@@ -1,9 +1,8 @@
 suppressMessages(library(here))
 suppressMessages(library(tidyverse))
 suppressMessages(library(blockTools))
-suppressMessages(library(xlsx))
 suppressMessages(library(writexl))
-
+suppressMessages(library(splitstackshape))
 
 # read input, correct bad codes, keep columns needed for downstream
 input <- suppressMessages(
@@ -39,14 +38,49 @@ output_df <- output_list[["x"]] %>%
   rename(coder = Tr) %>% 
   relocate(coder, .after = "ID")
 
-# create a new df holding randomly selected 10% of the original input cases.
-# Label these cases as interrater cases, and keep only ID and the interrater
-# label column
+# use splitstackshape::stratified() function to create a randomly sampled 10%
+# subsample of the original input cases, that is sampled within the assigned
+# coder groups, and within the age X clinical blocking structure. Label these
+# cases as interrater cases, and keep only ID and the interrater label columns.
+
+# the interrater subsample is assembled from separate subsamples of only
+# clinical and only typical. This is one way (admittedly not the most elegant)
+# to make sure that the interrater subsample includes clinical cases in the same
+# proportions as the input sample.
+
+# The arguments to stratified() are as follows: 
+# 1st: data frame input 
+# group: char vec of the columns to cross for stratification. This creates a set
+# of stratification buckets whose quantity is the number of categories in each
+# group column multiplied out.
+# size: here we use a proportion and adjust its value to yield the number of
+# cases we need (50-60 for the combined subsample)
+# select: allows you to sample only cases that have a particular value
+# (category) on one of the grouping vars. Here we use select in two successive
+# calls of stratified(), to sample within the blocking framework first for
+# typical cases (clinical = 1), and then for clinical cases (clinical = 2).
 set.seed(12345)
-input_interrater <- output_df %>% 
-  slice_sample(prop = .1, weight_by = clinical) %>%
-  mutate(interrater = 1) %>% 
-  ungroup() %>% 
+interrater_typical <- stratified(
+  output_df,
+  group = c("coder", "age_years", "clinical"),
+  size = .1,
+  select = list(clinical = 1)
+)
+
+set.seed(12345)
+interrater_clinical <- stratified(
+  output_df,
+  group = c("coder", "age_years", "clinical"),
+  size = .22,
+  select = list(clinical = 2)
+)
+
+input_interrater <- bind_rows(
+  interrater_typical,
+  interrater_clinical
+) %>% 
+  arrange(coder, age_years, clinical) %>% 
+  mutate(interrater = 1) %>%
   select(ID, interrater)
 
 # create a list of three dfs, in which the cases are split by coder, and bring
@@ -60,7 +94,7 @@ coder_df_list <- map(
     filter(coder == .x)
 ) %>% set_names(c("coder1", "coder2", "coder3"))
 
-# write the single df of randomized assigments to .csv
+# write the single df of randomized assignments to .csv
 write_csv(output_df,
           here("OUTPUT-FILES/osel-wps-r1-coder-assignments.csv"),
           na = "")
@@ -69,7 +103,7 @@ write_csv(output_df,
 # supply writexl::write_xlsx() with a named list of dfs for each tab, tab names
 # will be the names of the list elements
 write_xlsx(coder_df_list,
-           here("OUTPUT-FILES/osel-wps-r1-coder-assignments_writexl.xlsx"))
+           here("OUTPUT-FILES/osel-wps-r1-coder-assignments.xlsx"))
 
 
 # create a summary table showing n of cases assigned to each stratification
