@@ -21,6 +21,7 @@ input_retest <- input %>% select(ID, OSEL_retest) %>%
 
 # block the data by age and clinical status, and assign blocked data to three
 # treatment conditions (or here, three coders)
+set.seed(12345)
 blocks <- block(input, n.tr = 3, id.vars = "ID", 
                 block.vars = c("age_years", "clinical"))
 
@@ -30,6 +31,7 @@ assignments <- assignment(blocks, seed = 12345)
 # create a sequenced block object, which is a list containing a single df
 # holding the cases assigned to each coder. These cases were randomly selected
 # from within the stratification structure (by age year and clinical status))
+set.seed(12345)
 output_list <- block2seqblock(blocks, assignments, input, 
                               trn = c("coder1", "coder2", "coder3"))
 
@@ -104,7 +106,6 @@ write_csv(output_df,
 # will be the names of the list elements
 write_xlsx(coder_df_list,
            here("OUTPUT-FILES/osel-wps-r1-coder-assignments.xlsx"))
-
 
 # create a summary table showing n of cases assigned to each stratification
 # bucket
